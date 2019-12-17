@@ -1,29 +1,29 @@
-import urllib2,time,random,socket,smtplib
+import urllib2,time,random,socket,smtplib,chardet,zlib
 from email.mime.text import MIMEText
 
 MAXTIME_WAIT = 60
-CONFIG_PATH = '/root/checkBuy/checkBuy.config'
-MAIL_PATH = '/root/checkBuy/notice.mail'
+CONFIG_PATH = '/root/Program/checkBuy/checkBuy.config'
+MAIL_PATH = '/root/Program/checkBuy/notice.mail'
+GET_HTML = '/root/Program/checkBuy/getBuy.html'
 mail_info = []
 webCheckList = []
 
-#"User-Agent": "User-Agent: Mozilla/5.0 (Windows NT 6.3; WOW64; rv:43.0) Gecko/20100101 Firefox/43.0",
-#"Accept-Encoding": "gzip, deflate",
-#"Cookie": "_ga=GA1.3.385064905.1452777752; __auc=ca91bcf3152404d44885c402e2c; ckFORUM_bsn=0; ckBahaAd=8-----4---------; __asc=3f0f58e5153218cdfd3bf504fb4; _gat=1; ckBUY_item18UP=18UP"
-###response.info()['Content-Encoding']
 request_headers_noCookie = {
 "Accept-Language": "zh-TW,zh;q=0.8,en-US;q=0.5,en;q=0.3",
-"User-Agent":"Mozilla/5.0 (X11; Linux x86_64; rv:28.0) Gecko/20100101 Firefox/28.0",
-"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.167 Safari/537.36",
+"Upgrade-Insecure-requests":"1",
+"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
 "Connection": "keep-alive"
 }
 
 request_headers_Cookie = {
-"Accept-Language": "zh-TW,zh;q=0.8,en-US;q=0.5,en;q=0.3",
-"User-Agent":"Mozilla/5.0 (X11; Linux x86_64; rv:28.0) Gecko/20100101 Firefox/28.0",
-"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-"Connection": "keep-alive",
-"Cookie": ""
+"accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+"accept-language":"zh-TW,zh,en-US;q=0.8,en;q=0.7",
+"cache-control":"max-age=0",
+"cookie": "",
+"if-modified-since":"Wed, 03 Oct 2018 02:30:15 GMT",
+"upgrade-insecure-requests":"1",
+"user-agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.167 Safari/537.36"
 }
 
 def writeFile(filepath = None,buf = None) :
@@ -89,11 +89,11 @@ def sleepTime() :
 	
 def checkURL() :
 	request_headers = {}
-	#for mIndex,tempbuf in enumerate(temp_list) :
+
 	for mIndex,checkWeb in enumerate(webCheckList) :
-		if len(checkWeb) > 4:
-			print 'Alread send notify!'
-			#continue
+		if checkWeb[2] == '#':
+			print '%s %s Alread send notify!' % (checkWeb[0],checkWeb[1])
+			continue
 		webName = checkWeb[0]
 		targetURL = checkWeb[1]
 		checkString = checkWeb[2]
@@ -103,7 +103,6 @@ def checkURL() :
 			request_headers["Cookie"] = checkWeb[3]
 		else :
 			request_headers = request_headers_noCookie
-			#webCheckList[mIndex].append('')
 
 		print targetURL
 		print checkString
@@ -116,19 +115,45 @@ def checkURL() :
 			continue
 
 		WebContent = response.read()
-		
+
+  		# for check get html
+		# gzipped = response.headers.get('Content-Encoding')
+		# print 'gzipped ##'
+		# print gzipped
+
+		# if gzipped :
+		# 	html = zlib.decompress(WebContent, 16+zlib.MAX_WBITS)
+		# else :
+		# 	html = WebContent
+		# result = chardet.detect(html)
+		# writeFile(GET_HTML,html)
+		# exit()
+
 		ret = WebContent.find(checkString)
 
 		print '==================='
-		if ret == -1 :
+
+		#for check get html
+		#if ret == -1 :
+		#	print '%s Can\'t buy' % webName
+		#	filename = 'nobuy_%d.html' % mIndex
+		#	writeFile(filename,WebContent)
+		#else :
+		#	print '%s Buy it !' % webName
+		#	sendMail(webName,response.geturl())
+		#	checkWeb[2] = '#'
+		#	writeFile(GET_HTML,WebContent)
+
+		if ret != -1 :
+			print '%s Buy it !' % webName
+			sendMail(webName,response.geturl())
+			checkWeb[2] = '#'
+			writeFile(GET_HTML,WebContent)
+		else :
 			print '%s Can\'t buy' % webName
 			filename = 'nobuy_%d.html' % mIndex
 			writeFile(filename,WebContent)
-		else :
-			print '%s Buy it !' % webName
-			sendMail(webName,response.geturl())
-			checkWeb.append('')
-			writeFile('/root/checkBuy/getBuy.html',WebContent)
+
 		if mIndex +1 == len(webCheckList) :
 			break
 		print '...';
@@ -143,21 +168,6 @@ def start() :
 	while(1) :
 		checkURL()
 		time.sleep(sleepTime())
-
-	#join Cache to header
-	#not handle gzip encode
-	
-
-
-	
-		#sendMail('','')
-	
-	
-	#<a href="javascript:preorder(19741,'wantorder')">
-	#<img src="http://i2.bahamut.com.tw/newgshop/notify_buy.gif"></a>
-	
-	#<a href="javascript:BUY_notify('', '')">
-	#<img src="http://i2.bahamut.com.tw/newgshop/order_new.gif"></a>
 
 if __name__ == '__main__' :
 	start()
